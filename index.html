@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kohinoor Plus | Order Form</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#fff8ec,#f4ead7);color:#252525;min-height:100vh;display:grid;place-items:center;padding:22px}
+    .card{width:min(100%,470px);background:#fff;border-radius:22px;padding:28px;box-shadow:0 14px 45px #5c3b151a}
+    .tag{display:inline-block;background:#fff1d8;color:#8a5200;padding:7px 12px;border-radius:30px;font-size:12px;font-weight:700;letter-spacing:.5px}
+    h1{font-size:28px;margin:16px 0 8px;color:#38250e}.sub{color:#6e6254;line-height:1.5;margin:0 0 22px}
+    label{display:block;font-weight:700;font-size:14px;margin:16px 0 7px}
+    input,textarea{width:100%;padding:14px;border:1px solid #dfd6c9;border-radius:11px;font-size:16px;outline:none;background:#fff}
+    input:focus,textarea:focus{border-color:#b77a22;box-shadow:0 0 0 3px #b77a221c}
+    textarea{min-height:82px;resize:vertical}
+    button{width:100%;border:0;border-radius:12px;background:#9b5d12;color:#fff;font-size:17px;font-weight:700;padding:16px;margin-top:22px;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}.note{font-size:12px;color:#817568;line-height:1.5;margin-top:14px;text-align:center}
+    #status{display:none;padding:13px;border-radius:10px;margin-top:16px;line-height:1.45;font-size:14px}
+    #status.ok{display:block;background:#eaf8ee;color:#176b32}#status.err{display:block;background:#fff0ef;color:#a12b23}
+    .hp{position:absolute;left:-9999px;opacity:0}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <span class="tag">KOHINOOR PLUS</span>
+    <h1>अपनी जानकारी भरें</h1>
+    <p class="sub">ऑर्डर/कॉल-बैक के लिए नीचे अपना सही नाम और मोबाइल नंबर दर्ज करें। हमारी टीम आपसे संपर्क करेगी।</p>
+    <form id="leadForm">
+      <label for="fio">पूरा नाम *</label>
+      <input id="fio" name="fio" type="text" maxlength="255" placeholder="अपना पूरा नाम लिखें" autocomplete="name" required>
+      <label for="phone">मोबाइल नंबर *</label>
+      <input id="phone" name="phone" type="tel" inputmode="numeric" maxlength="15" placeholder="10 अंकों का मोबाइल नंबर" autocomplete="tel" required>
+      <label for="address">पूरा पता</label>
+      <textarea id="address" name="address" maxlength="255" placeholder="मकान नंबर, गली, इलाका, शहर"></textarea>
+      <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button id="submitBtn" type="submit">Submit करें</button>
+      <div id="status" role="status" aria-live="polite"></div>
+    </form>
+    <p class="note">आपकी जानकारी केवल आपके अनुरोध के संबंध में संपर्क करने के लिए उपयोग की जाएगी।</p>
+  </main>
+<script>
+  // Cloudflare Worker deploy karne ke baad yahan uska URL paste karein.
+  const API_URL = "PASTE_YOUR_CLOUDFLARE_WORKER_URL_HERE";
+  const form = document.getElementById("leadForm");
+  const btn = document.getElementById("submitBtn");
+  const statusBox = document.getElementById("status");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    statusBox.className = "";
+    statusBox.style.display = "none";
+
+    const data = new FormData(form);
+    const phone = String(data.get("phone") || "").replace(/\D/g, "");
+    if (String(data.get("website") || "").trim()) return; // bot honeypot
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      statusBox.textContent = "कृपया सही 10 अंकों का भारतीय मोबाइल नंबर दर्ज करें।";
+      statusBox.className = "err";
+      return;
+    }
+    if (API_URL.includes("PASTE_YOUR_")) {
+      statusBox.textContent = "Form अभी setup नहीं हुआ है। Backend URL जोड़ना बाकी है।";
+      statusBox.className = "err";
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "भेजा जा रहा है...";
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          fio: String(data.get("fio") || "").trim(),
+          phone,
+          address: String(data.get("address") || "").trim()
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) throw new Error(result.message || "Lead submit नहीं हो पाई।");
+      form.reset();
+      statusBox.textContent = "धन्यवाद! आपकी जानकारी सफलतापूर्वक भेज दी गई है। हमारी टीम आपसे संपर्क करेगी।";
+      statusBox.className = "ok";
+    } catch (error) {
+      statusBox.textContent = error.message || "कनेक्शन में समस्या है। कृपया दोबारा कोशिश करें।";
+      statusBox.className = "err";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Submit करें";
+    }
+  });
+</script>
+</body>
+</html>
